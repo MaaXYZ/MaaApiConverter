@@ -7,4 +7,5 @@
 
 *.json   text eol=crlf
 *.md     text eol=crlf
+*.yml    text eol=crlf
 *.yaml   text eol=crlf

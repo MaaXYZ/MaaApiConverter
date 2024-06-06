@@ -1,0 +1,33 @@
+name: MaaApiConverter
+author: moomiji
+description: 'Build And Run MaaApiConverter'
+inputs:
+  version:
+    description: 'The version of MaaFramework.'
+    required: true
+  xml:
+    description: 'The directory path of xml files.'
+    required: true
+  output:
+    description: "The directory path of MaaApiConverter output."
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0'
+
+    - shell: bash
+      working-directory: ${{ github.action_path }}/src/Doxygen/
+      run: ln -s "${{ env.xml }}/.." ../MaaFramework && cat Update.bat | bash
+      env:
+        xml: ${{ github.workspace }}/${{ inputs.xml }}
+
+    - shell: bash
+      working-directory: ${{ github.action_path }}
+      run: sudo dotnet run -- "${{ env.xml }}" "${{ inputs.version }}" "${{ env.output }}"
+      env:
+        xml: ${{ github.workspace }}/${{ inputs.xml }}
+        output: ${{ github.workspace }}/${{ inputs.output == '' && inputs.xml || inputs.output }}
