@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NoWarn>$(NoWarn),8981</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CodegenCS.Models" />
+    <PackageReference Include="XObjectsCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="MaaFramework*\**" />
+    <None Include="MaaFramework*\**" />
+  </ItemGroup>
+
+</Project>

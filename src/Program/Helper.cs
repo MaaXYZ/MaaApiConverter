@@ -1,4 +1,6 @@
-﻿internal static class Helper
+﻿namespace MaaApiConverter;
+
+internal static class Helper
 {
     public static T Dump<T>(this T result, params Action<T>[] actions)
     {

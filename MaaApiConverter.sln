@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaaApiConverter", "MaaApiConverter.csproj", "{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaaApiConverter", "src\MaaApiConverter.csproj", "{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,5 +1,7 @@
 ﻿using Doxygen.Compound;
 
+namespace MaaApiConverter;
+
 internal static class CompoundExecute
 {
     public static doxygen Parse(string path)

@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CodegenCSVersion>3.4.1</CodegenCSVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="CodegenCS.DotNet" Version="$(CodegenCSVersion)" />
+    <PackageVersion Include="CodegenCS.Models" Version="$(CodegenCSVersion)" />
+    <PackageVersion Include="CodegenCS.Runtime" Version="$(CodegenCSVersion)" />
+    <PackageVersion Include="XObjectsCore" Version="3.4.6" />
+  </ItemGroup>
+</Project>

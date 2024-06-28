@@ -1,4 +1,7 @@
-﻿using Doxygen.Compound;
+﻿using System.Data;
+using Doxygen.Compound;
+
+namespace MaaApiConverter;
 
 internal static class Converter
 {
@@ -83,6 +86,7 @@ internal static class Converter
     {
         Description = ToDescriptionFrom(member),
         EnumValues = ToEnumValuesFrom(member),
+        IsFlags = ToIsFlagsFrom(member),
     });
     #endregion
 
@@ -123,24 +127,40 @@ internal static class Converter
     private static readonly StringSplitOptions s_split_Trim_RemoveEmpty = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
     private static IEnumerable<string> ToDetailQuery(this descriptionType? detail)
         => from para in detail?.para ?? []
-           where para.parameterlist.Count is 0
-           where para.xrefsect.Count is 0
+           where para.parameterlist.Count is 0  // 参数
+           where para.xrefsect.Count is 0       // Deprecated
+           where para.simplesect.Count is 0     // return
            from str in para.Untyped.Value.Split('\n', s_split_Trim_RemoveEmpty)
            select str;
-    private static DescriptionDoc ToDescriptionFrom(memberdefType value) => new()
+    private static IEnumerable<string> ToDeprecatedQuery(this descriptionType? detail)
+        => from para in detail?.para ?? []
+           where para.xrefsect.Count is not 0
+           from xref in para.xrefsect
+               //  where string.Concat(xref.xreftitle) == "Deprecated"
+           select xref.xrefdescription.Untyped.Value.Trim();
+    private static DescriptionDoc ToDescriptionFrom(memberdefType value) => new DescriptionDoc
+    {
+        Brief = value.briefdescription?.Untyped.Value.Trim() ?? string.Empty,
+        Details = value.detaileddescription.ToDetailQuery().ToList().Dump(list =>
+        {
+            var inBody = value.inbodydescription?.Untyped.Value.Trim() ?? string.Empty;
+            if (!string.IsNullOrEmpty(inBody))
+            {
+                list.Add(inBody);
+                Console.WriteLine($"InBody: {inBody}");
+            }
+        }),
+    }.CheckDeprecated(value.detaileddescription, value);
+    private static DescriptionDoc ToDescriptionFrom(compounddefType value) => new DescriptionDoc
     {
         Brief = value.briefdescription?.Untyped.Value.Trim() ?? string.Empty,
         Details = value.detaileddescription.ToDetailQuery().ToList(),
-        InBody = value.inbodydescription?.Untyped.Value.Trim() ?? string.Empty,
-    };
-    private static DescriptionDoc ToDescriptionFrom(compounddefType value) => new()
-    {
-        Brief = value.briefdescription?.Untyped.Value.Trim() ?? string.Empty,
-        Details = value.detaileddescription.ToDetailQuery().ToList(),
-    };
+    }.CheckDeprecated(value.detaileddescription, null);
     private static DescriptionDoc ToDescriptionFrom(enumvalueType value)
     {
+        // 不用 ToDetailQuery 是因为处理了换行 Count > 1
         var detailQuery = from para in value.detaileddescription?.para ?? []
+                          where para.xrefsect.Count is 0
                           select para.Untyped.Value.Trim();
         var doc = new DescriptionDoc()
         {
@@ -173,7 +193,17 @@ ret:
                          from str in detail.Split('\n', s_split_Trim_RemoveEmpty)
                          select str;
         doc.Details = splitQuery.ToList();
-        return doc;
+        return doc.CheckDeprecated(value.detaileddescription, null);
+    }
+    private static DescriptionDoc CheckDeprecated(this DescriptionDoc description, descriptionType? detail, memberdefType? member)
+    {
+        if (member?.definition?.Untyped.Value.Contains("MAA_DEPRECATED") is true)
+            description.Deprecated = string.Empty;
+
+        var deprecatedQuery = ToDeprecatedQuery(detail);
+        if (deprecatedQuery.Any())
+            description.Deprecated = deprecatedQuery.Single();
+        return description;
     }
     private static Dictionary<string, DefineDoc> ToEnumValuesFrom(memberdefType member)
     {
@@ -186,36 +216,39 @@ ret:
             });
         return doc;
     }
+    private static bool ToIsFlagsFrom(memberdefType member)
+        => member.enumvalue.Select(x => x.initializer?.Untyped.Value ?? string.Empty).Any(x => x.Contains("<<") || x.Contains('|'));
     private static Dictionary<string, string> ToTypesFrom(memberdefType member, bool isFunctionPointer = false)
     {
         var doc = new Dictionary<string, string>();
 
+        var deprecatedQuery = ToDeprecatedQuery(member.detaileddescription);
         var typeQuery = isFunctionPointer
             ? member.type is null ? [] : [member.type.Untyped.Value.Trim('(', ')', ' ', '*')]
             : member.definition?.Untyped.Value.Replace(" *", "* ").Split(' ', s_split_Trim_RemoveEmpty)[..^1] ?? [];
-        var deprecatedQuery = from para in member.detaileddescription?.para ?? []
-                              where para.xrefsect.Count is not 0
-                              from xref in para.xrefsect
-                              from desc in xref.xrefdescription.para
-                              select desc.Untyped.Value.Trim();
         var returnQuery = from description in member.detaileddescription?.para ?? []
                           from @return in description.simplesect
                           from para in @return.para
                           select para.Untyped.Value.Trim();
-        foreach (var type in typeQuery)
-            doc.Add(type, string.Empty);
+
         if (deprecatedQuery.Any())
-            doc["MAA_DEPRECATED"] = deprecatedQuery.Single();
+            doc["MAA_DEPRECATED"] = string.Empty; // deprecatedQuery.Single();
+        foreach (var type in typeQuery)
+            doc.TryAdd(type, string.Empty);
+
         if (returnQuery.Any())
         {
             var desc = returnQuery.Single().Split(' ');
             var type = desc[0];
             if (!doc.ContainsKey(type))
-                type = (from key in doc.Keys
-                        where !key.Contains("MAA_")
-                        select key
-                       ).Single();
-            doc[type] = string.Join(' ', desc[1..]);
+            {
+                type = doc.Keys.Where(x => !x.Contains("MAA_")).Single();
+                doc[type] = string.Join(' ', desc);
+            }
+            else
+            {
+                doc[type] = string.Join(' ', desc[1..]);
+            }
         }
         return doc;
     }
@@ -228,19 +261,36 @@ ret:
                          select item;
         string GetItemName(docParamListItem item)
             => item.parameternamelist.Single().parametername.Single().Untyped.Value.Trim();
+        ParameterDirection GetItemDirection(docParamListItem? item, out bool isRef)
+        {
+            var ret = (ParameterDirection)0;
+            var dir = item?.parameternamelist.Single().parametername.Single().direction;
+            isRef = !string.IsNullOrEmpty(dir);
+            if (!isRef)
+                return ret;
+
+            if (dir!.Contains("in", StringComparison.OrdinalIgnoreCase))
+                ret |= ParameterDirection.Input;
+            if (dir.Contains("out", StringComparison.OrdinalIgnoreCase))
+                ret |= ParameterDirection.Output;
+            return ret;
+        }
         string GetItemDescription(docParamListItem? item)
-            => (item?.parameterdescription.para ?? []).SingleOrDefault()?.Untyped.Value.Trim() ?? string.Empty;
+            => item?.parameterdescription.para.Single()?.Untyped.Value.Trim() ?? string.Empty;
 
         var paramQuery = from param in member.argsstring?.Untyped.Value.Replace(" *", "* ").Split((char[])[',', '(', ')'], s_split_Trim_RemoveEmpty)
                          let paramTypeName = param.Split(' ', s_split_Trim_RemoveEmpty)
-                         let type = string.Join(' ', paramTypeName[..^1])
                          let name = paramTypeName[^1]
                          join item in paramDescr on name equals GetItemName(item) into items
                          from item in items.DefaultIfEmpty()
                          select (name, new ParameterDoc
                          {
-                             Type = type,
+                             Type = string.Join(' ', paramTypeName[..^1]),
+                             Direction = GetItemDirection(item, out var isRef),
                              Description = GetItemDescription(item),
+                             IsPointerToArray = member.param.Where(x => x.declname?.Untyped.Value == name).SingleOrDefault()?.briefdescription?.Untyped.Value
+                                    .Contains("array", StringComparison.OrdinalIgnoreCase)
+                                    ?? isRef ? false : null,
                          });
         foreach ((var paramName, var paramDoc) in paramQuery)
             doc.Add(paramName, paramDoc);
