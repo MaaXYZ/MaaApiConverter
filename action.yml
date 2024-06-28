@@ -27,7 +27,7 @@ runs:
 
     - shell: bash
       working-directory: ${{ github.action_path }}
-      run: sudo dotnet run -- "${{ env.xml }}" "${{ inputs.version }}" "${{ env.output }}"
+      run: sudo dotnet run --project ./src/MaaApiConverter.csproj -- "${{ env.xml }}" "${{ inputs.version }}" "${{ env.output }}"
       env:
         xml: ${{ github.workspace }}/${{ inputs.xml }}
         output: ${{ github.workspace }}/${{ inputs.output == '' && inputs.xml || inputs.output }}
