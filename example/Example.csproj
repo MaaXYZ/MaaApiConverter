@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="**\temp\**" />
+    <None Include="**\temp\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\MaaApiConverter.csproj" />
+    <PackageReference Include="CodegenCS.DotNet" />
+    <PackageReference Include="CodegenCS.Runtime" />
+  </ItemGroup>
+
+</Project>

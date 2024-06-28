@@ -5,6 +5,8 @@ VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaaApiConverter", "src\MaaApiConverter.csproj", "{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example", "example\Example.csproj", "{D684A124-7C81-421A-A137-B0EB50610E31}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AE4A0D58-616B-4F9D-9375-B4E89BB12DA7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D684A124-7C81-421A-A137-B0EB50610E31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D684A124-7C81-421A-A137-B0EB50610E31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D684A124-7C81-421A-A137-B0EB50610E31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D684A124-7C81-421A-A137-B0EB50610E31}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
