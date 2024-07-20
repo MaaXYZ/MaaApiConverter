@@ -277,6 +277,8 @@ ret:
         }
         string GetItemDescription(docParamListItem? item)
             => item?.parameterdescription.para.Single()?.Untyped.Value.Trim() ?? string.Empty;
+        bool? GetItemIsPointerToArray(string name)
+            => member.param.Where(x => x.declname?.Untyped.Value == name).SingleOrDefault()?.briefdescription?.Untyped.Value.Contains("array", StringComparison.OrdinalIgnoreCase);
 
         var paramQuery = from param in member.argsstring?.Untyped.Value.Replace(" *", "* ").Split((char[])[',', '(', ')'], s_split_Trim_RemoveEmpty)
                          let paramTypeName = param.Split(' ', s_split_Trim_RemoveEmpty)
@@ -288,9 +290,7 @@ ret:
                              Type = string.Join(' ', paramTypeName[..^1]),
                              Direction = GetItemDirection(item, out var isRef),
                              Description = GetItemDescription(item),
-                             IsPointerToArray = member.param.Where(x => x.declname?.Untyped.Value == name).SingleOrDefault()?.briefdescription?.Untyped.Value
-                                    .Contains("array", StringComparison.OrdinalIgnoreCase)
-                                    ?? isRef ? false : null,
+                             IsPointerToArray = GetItemIsPointerToArray(name) ?? (isRef ? false : null),
                          });
         foreach ((var paramName, var paramDoc) in paramQuery)
             doc.Add(paramName, paramDoc);
