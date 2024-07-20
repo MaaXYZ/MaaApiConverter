@@ -17,14 +17,14 @@ class CSharpTemplate
     {
         ["const MaaImageBufferHandle"] = "MaaImageBufferHandle",
         ["int32_t"] = "int",
-        ["const MaaStringView*"] = "{0} string[]",
+        ["const MaaStringView*"] = "string[]",
         ["int32_t*"] = "{0} int",
         ["MaaBool*"] = "{0} MaaBool",
-        ["MaaNodeId*"] = "{0} MaaNodeId",
-        ["MaaOptionValue"] = "{0} byte[]",
+        ["MaaNodeId*"] = "MaaNodeId[]",
+        ["MaaOptionValue"] = "byte[]",
         ["MaaRecoId*"] = "{0} MaaRecoId",
         ["MaaSize*"] = "{0} MaaSize",
-        ["MaaStringView*"] = "{0} string[]",
+        ["MaaStringView*"] = "string[]",
 
         ["MaaCustomActionHandle"] = "MaaCustomActionApi",
         ["MaaCustomControllerHandle"] = "MaaCustomControllerApi",
@@ -87,7 +87,7 @@ class CSharpTemplate
 
     void Rename(MaaApiDocument api)
     {
-        static void Name<T>(bool? isPascalCase, Dictionary<string, T> docs, Action<T>? action = null, Func<string, string> func = null)
+        static void Name<T>(bool? isPascalCase, Dictionary<string, T> docs, Action<T>? action = null)
         {
             foreach ((var name, var doc) in docs.ToArray())
             {
@@ -221,7 +221,10 @@ class CSharpTemplate
             compound.Enums = compound.Enums.ToDictionary(x => x.Key.Replace("Enum", string.Empty).Replace("Eunm", string.Empty), x => x.Value);
             foreach ((var enumName, var @enum) in compound.Enums)
             {
-                string ReplaceName(string name) => name.Replace(enumName, string.Empty).Replace(enumName.Replace("Type", string.Empty), string.Empty);
+                string ReplaceName(string name) => name
+                        .Replace(enumName, string.Empty)
+                        .Replace(enumName.Replace("Type", string.Empty), string.Empty)
+                        .Replace("touch", "Touch");
 
                 var newEnumName = _enumdefs[enumName];
                 var subDir = newEnumName.Contains("ControllerType") ? "ControllerTypes/" : newEnumName.Contains("Option") ? "Options/" : string.Empty;
@@ -352,9 +355,15 @@ class CSharpTemplate
 
         var modifier = (param.IsPointerToArray is true || type.Contains("[]"), param.Direction) switch
         {
-            (true, ParameterDirection.InputOutput) => "[In, Out]",
-            (true, ParameterDirection.Output) => "[Out]",
-            (true, ParameterDirection.Input) => "[In]",
+            // https://learn.microsoft.com/zh-cn/dotnet/standard/native-interop/best-practices
+            // nmmd 又说务必对数组参数使用 [In] 和 [Out] 属性，又在这报错
+            // 这就是我们的 M$ 啊，真是 MM 又 $$ 啊，你们有没有这样的 M$ 啊
+            // error SYSLIB1051: 此参数上提供的 “[In]” 和 “[Out]” 属性在此参数上不受支持。
+            // error SYSLIB1051: 不支持 “[In]” 属性，除非同时使用 “[Out]” 属性。没有 “[Out]” 属性的情况下，“[In]” 属性的行为与默认行为相同。
+
+            // (true, ParameterDirection.InputOutput) => "[In, Out]",
+            // (true, ParameterDirection.Output) => "[Out]",
+            // (true, ParameterDirection.Input) => "[In]",
             (false, ParameterDirection.InputOutput) => "ref",
             (false, ParameterDirection.Output) => "out",
             (false, ParameterDirection.Input) => "in",
@@ -362,11 +371,7 @@ class CSharpTemplate
         };
         type = (type.Contains("{0}"), string.IsNullOrEmpty(modifier)) switch
         {
-            // https://learn.microsoft.com/zh-cn/dotnet/standard/native-interop/best-practices
-            // nmmd 又说务必对数组参数使用 [In] 和 [Out] 属性，又在这报错
-            // 这就是我们的 M$ 啊，真是 MM 又 $$ 啊，你们有没有这样的 M$ 啊
-            // error SYSLIB1051: 不支持 “[In]” 属性，除非同时使用 “[Out]” 属性。没有 “[Out]” 属性的情况下，“[In]” 属性的行为与默认行为相同。
-            (true, false) => string.Format(type, modifier).Replace("[In]", string.Empty).Trim(),
+            (true, false) => string.Format(type, modifier).Trim(),
             (false, true) => type,
             _ => throw new InvalidOperationException(),
         };
