@@ -7,7 +7,7 @@ public static class Program
     public static string Generate(string[] args)
     {
         var outputDirectory = Environment.CurrentDirectory;
-        Converter.Path = Path.Combine(Environment.CurrentDirectory.Split("bin")[0], "src", "MaaFramework", "xml");
+        Converter.Path = Path.GetFullPath(Path.Join(Environment.CurrentDirectory.Split("bin")[0], "..", "src", "MaaFramework", "xml"));
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];

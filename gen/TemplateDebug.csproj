@@ -4,8 +4,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="**\temp\**" />
-    <None Include="**\temp\**" />
+    <Compile Remove="Templates\**" />
+    <Compile Include="Templates\*Template.cs" />
+    <None Include="Templates\**" />
   </ItemGroup>
 
   <ItemGroup>
