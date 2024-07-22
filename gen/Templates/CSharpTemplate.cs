@@ -338,7 +338,7 @@ class CSharpTemplate
         return Join(
             $"[UnmanagedFunctionPointer(CallingConvention.Cdecl)]",
             returnAttribute,
-            $"public delegate {@return} {name}({@params});");
+            $"public delegate {@return} {name}({@params.ToString().Replace("string ", "[MarshalAs(UnmanagedType.LPUTF8Str)] string ")});");
     }
     FormattableString GenAttribute(Dictionary<string, string> doc) => doc.Gen((type, description) => type switch
     {
