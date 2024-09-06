@@ -61,6 +61,7 @@ public class EnumDoc
     public DescriptionDoc Description { get; set; } = new();
     public Dictionary<string, DefineDoc> EnumValues { get; set; } = [];
     public bool IsFlags { get; set; } = false;
+    public string UnderlyingType { get; set; } = "int32_t";
 }
 
 public class StructDoc

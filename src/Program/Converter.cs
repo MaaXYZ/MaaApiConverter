@@ -44,9 +44,38 @@ internal static class Converter
                 "define" => ConvertDefine,
                 "function" => ConvertFunction,
                 "enum" => ConvertEnum,
+                "variable" => ConvertVariable,
                 _ => DefaultConvert,
             };
             action.Invoke(member, Api.Compounds[key]);
+        }
+
+        foreach (var (name, enumValue) in EnumVariable)
+        {
+            var (type, enumValueName) = ParseName(name, '_');
+
+            foreach (var compound in Api.Compounds.Values)
+            {
+                var typedoc = compound.Typedefs.SingleOrDefault(x => x.Key.Contains(type)).Value?.Type;
+                if (typedoc is null) continue;
+
+                compound.Enums.TryAdd(type, new EnumDoc
+                {
+                    Description = typedoc.Description,
+                    IsFlags = typedoc.Description.Details.Any(x => x.Contains("Use bitwise OR", StringComparison.OrdinalIgnoreCase)),
+                    UnderlyingType = typedoc.Define,
+                });
+                compound.Enums[type].EnumValues.Add(enumValueName, enumValue);
+                break;
+            }
+        }
+
+        return;
+
+        static (string type, string enumValueName) ParseName(string name, char separator)
+        {
+            var parts = name.Split(separator);
+            return (parts[0], parts[1]);
         }
     }
 
@@ -87,6 +116,13 @@ internal static class Converter
         Description = ToDescriptionFrom(member),
         EnumValues = ToEnumValuesFrom(member),
         IsFlags = ToIsFlagsFrom(member),
+    });
+    private static Dictionary<string, DefineDoc> EnumVariable { get; } = new();
+    private static void ConvertVariable(memberdefType member, CompoundDoc compound)
+    => EnumVariable.Add(member.name.Untyped.Value.Trim(), new()
+    {
+        Description = ToDescriptionFrom(member),
+        Value = member.initializer?.Untyped.Value.TrimStart('=').Trim() ?? string.Empty,
     });
     #endregion
 
