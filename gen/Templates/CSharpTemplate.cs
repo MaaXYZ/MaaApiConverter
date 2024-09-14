@@ -1,4 +1,6 @@
 ﻿using System.Data;
+using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 // Todo: 所有 Rename 放最开头，现在因为各个方法都耦合了 Rename 相关的快成屎山了
 class CSharpTemplate
@@ -10,76 +12,99 @@ class CSharpTemplate
         ["int64_t"] = "System.Int64",
         ["uint8_t"] = "System.Byte",
         ["uint64_t"] = "System.UInt64",
-        ["MaaAPICallback"] = "MaaFramework.Binding.Interop.Native.MaaApiCallback",
+    };
+    readonly Dictionary<string, string> _customHandleTypedefs = new()
+    {
+        ["MaaContext*"] = "MaaContextHandle",
+        ["MaaController*"] = "MaaControllerHandle",
+        ["MaaCustomControllerCallbacks*"] = "MaaCustomControllerCallbacksHandle",
+        ["MaaImageBuffer*"] = "MaaImageBufferHandle",
+        ["MaaImageListBuffer*"] = "MaaImageListBufferHandle",
+        ["MaaRect*"] = "MaaRectHandle",
+        ["MaaResource*"] = "MaaResourceHandle",
+        ["MaaStringBuffer*"] = "MaaStringBufferHandle",
+        ["MaaStringListBuffer*"] = "MaaStringListBufferHandle",
+        ["MaaTasker*"] = "MaaTaskerHandle",
+        ["MaaToolkitAdbDevice*"] = "MaaToolkitAdbDeviceHandle",
+        ["MaaToolkitAdbDeviceList*"] = "MaaToolkitAdbDeviceListHandle",
+        ["MaaToolkitDesktopWindow*"] = "MaaToolkitDesktopWindowHandle",
+        ["MaaToolkitDesktopWindowList*"] = "MaaToolkitDesktopWindowListHandle",
+
     };
     readonly Dictionary<string, string> _types = new()
     {
-        ["const MaaImageBufferHandle"] = "MaaImageBufferHandle",
-        ["int32_t"] = "int",
-        ["const MaaStringView*"] = "string[]",
-        ["int32_t*"] = "{0} int",
         ["MaaBool*"] = "{0} MaaBool",
         ["MaaNodeId*"] = "MaaNodeId[]",
         ["MaaOptionValue"] = "byte[]",
         ["MaaRecoId*"] = "{0} MaaRecoId",
         ["MaaSize*"] = "{0} MaaSize",
-        ["MaaStringView*"] = "string[]",
 
-        ["MaaCustomActionHandle"] = "MaaCustomActionApi",
-        ["MaaCustomControllerHandle"] = "MaaCustomControllerApi",
-        ["MaaCustomRecognizerHandle"] = "MaaCustomRecognizerApi",
-        ["MaaStringView"] = "string",
+        ["const char*"] = "string",
+        ["char*"] = "string",
+        ["void*"] = "nint",
 
-        ["MaaAdbControllerType"] = "MaaAdbControllerType",
+        ["int32_t"] = "int",
+
+        ["MaaAdbInputMethod"] = "MaaAdbInputMethod",
+        ["MaaAdbScreencapMethod"] = "MaaAdbScreencapMethod",
         ["MaaBool"] = "MaaBool",
-        ["MaaCallbackTransparentArg"] = "MaaCallbackTransparentArg",
-        ["MaaControllerCallback"] = "MaaControllerCallback",
-        ["MaaControllerHandle"] = "MaaControllerHandle",
         ["MaaCtrlId"] = "MaaCtrlId",
         ["MaaCtrlOption"] = "MaaCtrlOption",
+        ["MaaCustomActionCallback"] = "MaaCustomActionCallback",
+        ["MaaCustomRecognizerCallback"] = "MaaCustomRecognizerCallback",
         ["MaaDbgControllerType"] = "MaaDbgControllerType",
         ["MaaGlobalOption"] = "MaaGlobalOption",
-        ["MaaImageBufferHandle"] = "MaaImageBufferHandle",
         ["MaaImageEncodedData"] = "MaaImageEncodedData",
-        ["MaaImageListBufferHandle"] = "MaaImageListBufferHandle",
         ["MaaImageRawData"] = "MaaImageRawData",
-        ["MaaInstanceCallback"] = "MaaInstanceCallback",
-        ["MaaInstanceHandle"] = "MaaInstanceHandle",
-        ["MaaInstOption"] = "MaaInstOption",
         ["MaaNodeId"] = "MaaNodeId",
+        ["MaaNotificationCallback"] = "MaaNotificationCallback",
         ["MaaOptionValueSize"] = "MaaOptionValueSize",
         ["MaaRecoId"] = "MaaRecoId",
-        ["MaaRectHandle"] = "MaaRectHandle",
         ["MaaResId"] = "MaaResId",
         ["MaaResOption"] = "MaaResOption",
-        ["MaaResourceCallback"] = "MaaResourceCallback",
-        ["MaaResourceHandle"] = "MaaResourceHandle",
         ["MaaSize"] = "MaaSize",
         ["MaaStatus"] = "MaaStatus",
-        ["MaaStringBufferHandle"] = "MaaStringBufferHandle",
-        ["MaaStringListBufferHandle"] = "MaaStringListBufferHandle",
-        ["MaaSyncContextHandle"] = "MaaSyncContextHandle",
+        ["MaaTaskerOption"] = "MaaTaskerOption",
         ["MaaTaskId"] = "MaaTaskId",
-        ["MaaThriftControllerType"] = "MaaThriftControllerType",
-        ["MaaTransparentArg"] = "MaaTransparentArg",
-        ["MaaWin32ControllerType"] = "MaaWin32ControllerType",
-        ["MaaWin32Hwnd"] = "MaaWin32Hwnd",
+        ["MaaWin32InputMethod"] = "MaaWin32InputMethod",
+        ["MaaWin32ScreencapMethod"] = "MaaWin32ScreencapMethod",
         ["void"] = "void",
     };
     readonly Dictionary<string, string> _enumdefs = new()
+    {
+        ["MaaCtrlOption"] = "ControllerOption",
+        ["MaaGlobalOption"] = "GlobalOption",
+        ["MaaResOption"] = "ResourceOption",
+        ["MaaTaskerOption"] = "TaskerOption",
+
+        ["MaaLoggingLevel"] = "LoggingLevel",
+        ["MaaStatus"] = "MaaJobStatus",
+
+        ["MaaAdbScreencapMethod"] = "AdbScreencapMethod",
+        ["MaaAdbInputMethod"] = "AdbInputMethod",
+        ["MaaWin32ScreencapMethod"] = "Win32ScreencapMethod",
+        ["MaaWin32InputMethod"] = "Win32InputMethod",
+        ["MaaDbgControllerType"] = "DbgControllerType",
+    };
+    private readonly Dictionary<string, string> _enumVariabledefs = new()
     {
         ["MaaAdbControllerType"] = "AdbControllerTypes",
         ["MaaDbgControllerType"] = "DbgControllerType",
         ["MaaThriftControllerType"] = "ThriftControllerType",
         ["MaaWin32ControllerType"] = "Win32ControllerTypes",
+    };
+    private readonly Dictionary<string, string> _structKeys = new()
+    {
+        ["MaaCustomControllerCallbacks"] = "Controller",
+    };
+    private readonly Dictionary<string, string> _unmanagedToManaged = new()
+    {
+        ["MaaStringBuffer*"] = "new Buffers.MaaStringBuffer({0})",
+        ["MaaImageBuffer*"] = "new MaaImageBuffer({0})",
+        // ["const char*"] = "{0}.ToStringUTF8()",
+        ["void*"] = "",
 
-        ["MaaCtrlOption"] = "ControllerOption",
-        ["MaaGlobalOption"] = "GlobalOption",
-        ["MaaInstOption"] = "InstanceOption",
-        ["MaaResOption"] = "ResourceOption",
-
-        ["MaaLoggingLevel"] = "LoggingLevel",
-        ["MaaStatus"] = "MaaJobStatus",
+        ["MaaBool"] = "{0}.ToMaaBool()",
     };
 
     FormattableString Join(params FormattableString[] formattableStrings) => GenExtension.Join(Environment.NewLine, formattableStrings);
@@ -179,6 +204,8 @@ class CSharpTemplate
 
                 if (globalUsings.Count > 0)
                     WriteGlobalUsings(writer, globalUsings);
+                if (location.Contains("MaaDef"))
+                    WriteCustomGlobalUsings(writer);
 
                 if (compound.Functions.Count + compound.Defines.Count + globalDelegates.Count > 0)
                 {
@@ -217,16 +244,20 @@ class CSharpTemplate
                 }
             }
 
-            compound.Enums = compound.Enums.ToDictionary(x => x.Key.Replace("Enum", string.Empty).Replace("Eunm", string.Empty), x => x.Value);
+            compound.Enums = compound.Enums.ToDictionary(x => x.Key.Replace("Enum", string.Empty), x => x.Value);
             foreach ((var enumName, var @enum) in compound.Enums)
             {
                 string ReplaceName(string name) => name
                         .Replace(enumName, string.Empty)
                         .Replace(enumName.Replace("Type", string.Empty), string.Empty)
-                        .Replace("touch", "Touch");
+                        .Replace("0ULL", "0")
+                        .Replace("1ULL", "1");
 
                 var newEnumName = _enumdefs[enumName];
-                var subDir = newEnumName.Contains("ControllerType") ? "ControllerTypes/" : newEnumName.Contains("Option") ? "Options/" : string.Empty;
+                var subDir = newEnumName.Contains("ControllerType") ? "Controllers/"
+                    : newEnumName.Contains("Method") ? "Controllers/"
+                    : newEnumName.Contains("Option") ? "Options/"
+                    : string.Empty;
                 var location = "./src/MaaFramework.Binding/Enums/" + subDir + newEnumName + ".cs";
                 var writer = context[location];
                 WriteAutoGenerated(writer);
@@ -241,6 +272,7 @@ class CSharpTemplate
                             x.Value.Value = ReplaceName(x.Value.Value);
                             return x.Value;
                         });
+                @enum.UnderlyingType = _typedefs[@enum.UnderlyingType];
                 writer
                     .WriteLine("namespace MaaFramework.Binding;")
                     .WriteLine();
@@ -272,7 +304,7 @@ class CSharpTemplate
     # region GlobalUsing
     void WriteGlobalUsings(ICodegenTextWriter writer, Dictionary<string, TypeDoc> types)
     {
-        foreach ((var name, var type) in types)
+        foreach (var (name, type) in types)
         {
             if (type.Define.EndsWith('*')) type.Define = "nint";
             type.Define = _typedefs.GetValueOrDefault(type.Define, type.Define);
@@ -280,8 +312,19 @@ class CSharpTemplate
             type.Define = _typedefs.GetValueOrDefault(name, type.Define);
 
             writer.EnsureEmptyLine().Write(GenComment(type.Description))
-                  .EnsureEmptyLine().Write($"global using {name} = {type.Define};");
+                .EnsureEmptyLine().Write($"global using {name} = {type.Define};");
         }
+
+        writer.EnsureEmptyLine().WriteLine();
+    }
+
+    void WriteCustomGlobalUsings(ICodegenTextWriter writer)
+    {
+        foreach (var (_, type) in _customHandleTypedefs)
+        {
+            writer.EnsureEmptyLine().Write($"global using {type} = nint;");
+        }
+
         writer.EnsureEmptyLine().WriteLine();
     }
     #endregion
@@ -298,39 +341,27 @@ class CSharpTemplate
         GenFunction(name, function)));
     (string @return, FormattableString returnAttribute, FormattableString @params) GenFunctionElement(string name, FunctionDoc function)
     {
-        Dictionary<string, KeyValuePair<string, string>> specials = new()
+        Dictionary<string, (string Old, string New)> specials = new()
         {
-            ["MaaSetStringEx"] = new("string", "byte[]"),
+            ["MaaStringBufferSetEx"] = ("string", "byte[]"),
         };
 
-        var @return = GenReturn(name, function.Types, out var returnAttribute);
+        var @return = GenReturn(function.Types, out var returnAttribute);
         var @params = GenParameters(function.Parameters);
-        if (specials.TryGetValue(name, out var kv))
-            @params = FormattableStringFactory.Create(@params.Format, @params.GetArguments().Select(x => (x as string)?.ToString().Replace(kv.Key, kv.Value)
-                                                                                                      ?? (x as FormattableString)?.ToString().Replace(kv.Key, kv.Value)
+        if (specials.TryGetValue(name, out var t))
+            @params = FormattableStringFactory.Create(@params.Format, @params.GetArguments().Select(x => (x as string)?.ToString().Replace(t.Old, t.New)
+                                                                                                      ?? (x as FormattableString)?.ToString().Replace(t.Old, t.New)
                                                                                                       ?? x).ToArray());
         return (@return, returnAttribute, @params);
     }
     FormattableString GenFunction(string name, FunctionDoc function, string modifiers = "public static partial", FormattableString? statements = null)
     {
         statements ??= $";";
-        (var @return, var returnAttribute, var @params) = GenFunctionElement(name, function);
-        if (string.IsNullOrWhiteSpace(modifiers))
-            return DisableWarning(Join(returnAttribute, $"{@return} {name}({@params}){statements}"));
-        else
-            return DisableWarning(Join(returnAttribute, $"{modifiers} {@return} {name}({@params}){statements}"));
+        var (@return, returnAttribute, @params) = GenFunctionElement(name, function);
+        return string.IsNullOrWhiteSpace(modifiers)
+            ? Join(returnAttribute, $"{@return} {name}({@params}){statements}")
+            : Join(returnAttribute, $"{modifiers} {@return} {name}({@params}){statements}");
 
-        FormattableString DisableWarning(FormattableString func)
-        {
-            HashSet<string> specials = ["MaaCustomActionApi", "MaaCustomControllerApi", "MaaCustomRecognizerApi",];
-            if (specials.Any(@params.ToString().Contains))
-                return $"""
-                        #pragma warning disable SYSLIB1051 // 源生成的 P/Invoke 不支持指定的类型
-                        {func}
-                        #pragma warning restore SYSLIB1051 // 源生成的 P/Invoke 不支持指定的类型
-                        """;
-            return func;
-        }
     }
     FormattableString GenDelegate(string name, FunctionDoc function)
     {
@@ -348,8 +379,10 @@ class CSharpTemplate
     });
     FormattableString GenParameters(Dictionary<string, ParameterDoc> doc) => doc.Gen(separator: ", ", f: (paramName, param) =>
     {
-        var type = _types.TryGetValue(param.Type, out var t) ? t : param.Type;
-        if (t is null)
+        var type = _types.TryGetValue(param.Type, out var t) ? t
+            : _customHandleTypedefs.SingleOrDefault(x => param.Type.Contains(x.Key)).Value ?? param.Type;
+
+        if (type == param.Type && !_types.ContainsKey(type))
             UnreplacedTypes.Add(type);
 
         var modifier = (param.IsPointerToArray is true || type.Contains("[]"), param.Direction) switch
@@ -376,16 +409,23 @@ class CSharpTemplate
         };
         return $"{type} {paramName}";
     });
-    string GenReturn(string name, Dictionary<string, string> doc, out FormattableString returnAttribute)
+    string GenReturn(Dictionary<string, string> doc, out FormattableString returnAttribute)
     {
-        HashSet<string> specials = ["MaaGetString"];
+        var specials = new Dictionary<string, string>
+        {
+            ["const char*"] = "nint", // 封送会释放掉 Maa 返回的 const char*
+            ["char*"] = "nint",
+        };
 
         returnAttribute = $"";
-        var @return = doc.Keys.Where(x => !x.StartsWith("MAA_")).Single();
-        if (specials.Contains(name) || @return == "MaaStringView") // 封送会释放掉 Maa 返回的 MaaStringView
-            return @return;
+        var @return = doc.Keys.Single(IsReturnType);
+        if (specials.TryGetValue(@return, out var type))
+            return type;
 
-        if (_types.TryGetValue(@return, out var type))
+        if (_types.TryGetValue(@return, out type))
+            return type;
+
+        if (_customHandleTypedefs.TryGetValue(@return, out type))
             return type;
 
         UnreplacedTypes.Add(@return);
@@ -411,12 +451,12 @@ class CSharpTemplate
             value = match[0].Groups[2].Value;
         }
 
-        Dictionary<string, KeyValuePair<string, string>> specials = new()
+        Dictionary<string, (string Old, string New)> specials = new()
         {
-            ["MaaNullSize"] = new("-1", $"{type}.MaxValue"),
+            ["MaaNullSize"] = ("-1", $"{type}.MaxValue"),
         };
-        if (specials.TryGetValue(name, out var kv))
-            value = value.Replace(kv.Key, kv.Value);
+        if (specials.TryGetValue(name, out var t))
+            value = value.Replace(t.Old, t.New);
 
         return $"{modifiers} const {type} {name} = {value};";
     }
@@ -429,7 +469,7 @@ class CSharpTemplate
             .EnsureEmptyLine().Write(GenDocument(doc.Description))
             .EnsureEmptyLine().Write(doc.IsFlags ? "[Flags]" : string.Empty)
             .EnsureEmptyLine().WithCBlock(
-                $"public enum {name}", () =>
+                $"public enum {name} : {doc.UnderlyingType}", () =>
                 {
                     writer.WriteLine(GenEnumValues(doc.EnumValues));
                 })
@@ -448,15 +488,13 @@ class CSharpTemplate
             ["Stop"] = "Abort",
         };
 
-        var key = keyName.Replace("Maa", string.Empty, StringComparison.OrdinalIgnoreCase)
-                         .Replace("Custom", string.Empty, StringComparison.OrdinalIgnoreCase)
-                         .Replace("API", string.Empty, StringComparison.OrdinalIgnoreCase);
+        var key = _structKeys[keyName];
         var functionPointers = doc.Variables.Where(x => x.Value.FunctionPointer is not null).ToDictionary(x => specials.GetValueOrDefault(x.Key, x.Key), x => x.Value.FunctionPointer!);
 
         writer
             .WithIndent($"""
                         global using Maa{key}ApiTuple = (
-                            MaaFramework.Binding.Interop.Native.MaaCustom{key}Api Unmanaged,
+                            System.Runtime.InteropServices.GCHandle Handle,
                             MaaFramework.Binding.Custom.IMaaCustom{key} Managed,
                         """, ");", () =>
                         {
@@ -473,9 +511,9 @@ class CSharpTemplate
             .WriteLine(GenDocument(doc.Description))
             .WriteLine($$"""
                         [StructLayout(LayoutKind.Sequential)]
-                        public class MaaCustom{{key}}Api
+                        public class {{keyName}}
                         {
-                            {{from name in functionPointers.Keys select $"public nint {name};"}}
+                            {{from name in functionPointers.Keys select $"public nint {name}FunctionPointer;"}}
                         }
                         """)
             .EnsureEmptyLine()
@@ -489,52 +527,45 @@ class CSharpTemplate
                         {
                             writer.WriteLine(GenStructExtensionField_Delegate(functionPointers));
                             writer.WithCBlock(
-                                $"public static MaaCustom{key}Api Convert(this IMaaCustom{key} task, out Maa{key}ApiTuple tuple)", () =>
+                                $"public static {keyName}Handle Convert(this IMaaCustom{key} task, out Maa{key}ApiTuple tuple)", () =>
                                 {
                                     writer.WriteLine(GenStructExtensionConvert_LocalMethod(functionPointers));
                                     writer.WriteLine($$"""
-
-                                        tuple = (new()
+                                        
+                                        {{functionPointers.Keys.Select(name => $"{name}Delegate {name}Method = {name}LocalMethod;")}}
+                                        
+                                        var handle = GCHandle.Alloc(new {{keyName}}()
                                         {
-                                            {{functionPointers.Keys.Select(name => $"{name} = Marshal.GetFunctionPointerForDelegate<{name}>({name}),")}}
-                                        },
+                                            {{functionPointers.Keys.Select(name => $"{name}FunctionPointer = Marshal.GetFunctionPointerForDelegate<{name}Delegate>({name}Method),")}}
+                                        }, GCHandleType.Pinned);
+                                        
+                                        tuple = (
+                                            handle,
                                             task,
-                                            {{string.Join(",\r\n", functionPointers.Keys)}}
+                                            {{string.Join(",\r\n", functionPointers.Keys.Select(x => x + "Method"))}}
                                         );
-                                        return tuple.Unmanaged;
+                                        return handle.AddrOfPinnedObject();
                                         """);
                                 });
                         })
             .WriteLine();
     }
     FormattableString GenStructTupleField_Delegate(string key, Dictionary<string, FunctionDoc> doc) => doc.Gen((name, function) =>
-        $"MaaFramework.Binding.Interop.Native.IMaaCustom{key}Extension.{name} {name}",
+        $"MaaFramework.Binding.Interop.Native.IMaaCustom{key}Extension.{name}Delegate {name}Method",
         separator: ",\r\n");
     FormattableString GenStructExtensionField_Delegate(Dictionary<string, FunctionDoc> doc) => doc.Gen(separator: "\r\n\r\n", f: (name, function) => Join(
         GenDocument(function),
         GenAttribute(function.Types),
-        GenDelegate(name, function)));
+        GenDelegate(name + "Delegate", function)));
     FormattableString GenStructExtensionConvert_LocalMethod(Dictionary<string, FunctionDoc> doc) => doc.Gen(separator: "\r\n\r\n", f: (name, function) => Join(
-        GenFunction(name, function, modifiers: string.Empty, statements: GenStatements(name, function.Types.Keys.Single(), function.Parameters))));
+        GenFunction(name + "LocalMethod", function, modifiers: string.Empty, statements: GenStatements(name, function.Types.Keys.Single(), function.Parameters))));
     FormattableString GenStatements(string funcName, string funcType, Dictionary<string, ParameterDoc> doc) => FormattableStringFactory.Create("{0};", GenManagedType(funcType,
         $" => task.{Naming.To.PascalCase(funcName)}(" +
-        $"{doc.Gen(separator: ", ", f: (paramName, param) => GenManagedType(param.Type, paramName, param))}" +
+        $"{doc.Gen(separator: ", ", f: (paramName, param) => GenManagedType(param.Type, paramName))}" +
         $")"));
-    FormattableString GenManagedType(string unmanagedType, string value, ParameterDoc? param = null) => unmanagedType switch
-    {
-        "MaaStringBufferHandle" => $"new Buffers.MaaStringBuffer({value})",
-        "MaaSyncContextHandle" => $"new Binding.MaaSyncContext({value})",
-        "const MaaImageBufferHandle" => $"new MaaImageBuffer({value})",
-        "MaaImageBufferHandle" => $"new MaaImageBuffer({value})",
-        "MaaRectHandle" => $"new Buffers.MaaRectBuffer({value})",
-        // "MaaStringView" => $"{value}.ToStringUTF8()",
-        "MaaBool" => $"{value}.ToMaaBool()",
-        "MaaTransparentArg" => $"",
-        _ when param?.Direction == ParameterDirection.Input => $"in {value}",
-        _ when param?.Direction == ParameterDirection.Output => $"out {value}",
-        _ when param?.Direction == ParameterDirection.InputOutput => $"ref {value}",
-        _ => $"{value}",
-    };
+    FormattableString GenManagedType(string unmanagedType, string value)
+        => FormattableStringFactory.Create(_unmanagedToManaged.GetValueOrDefault(unmanagedType, "{0}"), value);
+
     #endregion
 
     #region Generic
@@ -565,12 +596,16 @@ class CSharpTemplate
     FormattableString GenDocumentParam(Dictionary<string, ParameterDoc> doc) => doc.Gen((name, param) => param.Description.Gen(description => $"""
         /// <param name="{name}">{description}</param>
         """));
-    FormattableString GenDocumentReturns(Dictionary<string, string> doc) => doc.Where(type => !type.Key.StartsWith("MAA_")).Single().Value.Gen(description => $"""
+    FormattableString GenDocumentReturns(Dictionary<string, string> doc) => doc.Single(type => IsReturnType(type.Key)).Value.Gen(description => $"""
         /// <returns>{description}</returns>
         """);
     FormattableString GenObsoleteAttribute(DescriptionDoc doc) => doc.Deprecated is null ? $""
         : string.IsNullOrWhiteSpace(doc.Deprecated)
         ? (FormattableString)$"""[Obsolete]"""
         : $"""[Obsolete("{doc.Deprecated}")]""";
+
+    bool IsReturnType(string type)
+        => !type.StartsWith("MAA_") && !type.Equals("const");
+
     #endregion
 }
