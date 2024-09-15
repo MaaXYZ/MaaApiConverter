@@ -19,7 +19,7 @@ public static class Program
 
         Converter.Path
             .Parse()
-            .GetCompoundPaths(kinds: ["file"], exceptNames: ["MaaPort.h"])
+            .GetCompoundPaths(kinds: ["file", "group"], exceptNames: ["MaaPort.h", "MaaMsg.h"])
             .Parse()
             .Convert();
 

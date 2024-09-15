@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using Doxygen.Compound;
 
 namespace MaaApiConverter;
@@ -34,9 +35,9 @@ internal static class Converter
     }
 
     #region ConvertMember
-    private static void ConvertMember(IEnumerable<(string, memberdefType)> members)
+    private static void ConvertMember(IEnumerable<(string key, memberdefType member)> members)
     {
-        foreach ((var key, var member) in members)
+        foreach (var (key, member) in members.OrderBy(x => x.member.kind != "typedef")) // false is 0 (first)
         {
             Action<memberdefType, CompoundDoc> action = member.kind switch
             {
@@ -44,38 +45,9 @@ internal static class Converter
                 "define" => ConvertDefine,
                 "function" => ConvertFunction,
                 "enum" => ConvertEnum,
-                "variable" => ConvertVariable,
                 _ => DefaultConvert,
             };
             action.Invoke(member, Api.Compounds[key]);
-        }
-
-        foreach (var (name, enumValue) in EnumVariable)
-        {
-            var (type, enumValueName) = ParseName(name, '_');
-
-            foreach (var compound in Api.Compounds.Values)
-            {
-                var typedoc = compound.Typedefs.SingleOrDefault(x => x.Key.Contains(type)).Value?.Type;
-                if (typedoc is null) continue;
-
-                compound.Enums.TryAdd(type, new EnumDoc
-                {
-                    Description = typedoc.Description,
-                    IsFlags = typedoc.Description.Details.Any(x => x.Contains("Use bitwise OR", StringComparison.OrdinalIgnoreCase)),
-                    UnderlyingType = typedoc.Define,
-                });
-                compound.Enums[type].EnumValues.Add(enumValueName, enumValue);
-                break;
-            }
-        }
-
-        return;
-
-        static (string type, string enumValueName) ParseName(string name, char separator)
-        {
-            var parts = name.Split(separator);
-            return (parts[0], parts[1]);
         }
     }
 
@@ -98,11 +70,48 @@ internal static class Converter
             },
         }));
     private static void ConvertDefine(memberdefType member, CompoundDoc compound)
-        => compound.Defines.Add(member.name.Untyped.Value.Trim(), new()
+    {
+        var defineName = member.name.Untyped.Value.Trim();
+        var define = new DefineDoc
         {
             Description = ToDescriptionFrom(member),
             Value = member.initializer?.Untyped.Value.TrimStart('=').Trim() ?? string.Empty,
-        });
+        };
+
+        if (TryParseEnumName(defineName, '_', out var typeName, out var enumValueName))
+        {
+            var typedoc = compound.Typedefs[typeName].Type!;
+            _ = compound.Enums.ContainsKey(typeName) || compound.Enums.TryAdd(typeName, new()
+            {
+                Description = typedoc.Description,
+                IsFlags = typedoc.Description.Details.Any(x => x.Contains("Use bitwise OR", StringComparison.OrdinalIgnoreCase)),
+                UnderlyingType = typedoc.Define,
+            });
+            compound.Enums[typeName].EnumValues.Add(enumValueName, define);
+        }
+        else
+        {
+            compound.Defines.Add(defineName, define);
+        }
+
+        return;
+
+        bool TryParseEnumName(string name, char separator, [NotNullWhen(true)] out string? type, [NotNullWhen(true)] out string? enumValueName)
+        {
+            var parts = name.Split(separator, 2);
+            if (parts.Length != 2 || name.Contains("MaaMsg"))
+            {
+                type = default;
+                enumValueName = default;
+                return false;
+            }
+
+            type = parts[0];
+            enumValueName = parts[1];
+            return true;
+        }
+    }
+
     private static void ConvertFunction(memberdefType member, CompoundDoc compound)
         => compound.Functions.Add(member.name.Untyped.Value.Trim(), new()
         {
@@ -116,13 +125,6 @@ internal static class Converter
         Description = ToDescriptionFrom(member),
         EnumValues = ToEnumValuesFrom(member),
         IsFlags = ToIsFlagsFrom(member),
-    });
-    private static Dictionary<string, DefineDoc> EnumVariable { get; } = new();
-    private static void ConvertVariable(memberdefType member, CompoundDoc compound)
-    => EnumVariable.Add(member.name.Untyped.Value.Trim(), new()
-    {
-        Description = ToDescriptionFrom(member),
-        Value = member.initializer?.Untyped.Value.TrimStart('=').Trim() ?? string.Empty,
     });
     #endregion
 
@@ -260,7 +262,7 @@ ret:
 
         var deprecatedQuery = ToDeprecatedQuery(member.detaileddescription);
         var typeQuery = isFunctionPointer
-            ? member.type is null ? [] : [member.type.Untyped.Value.Trim('(', ')', ' ', '*')]
+            ? member.type is null ? [] : member.type.Untyped.Value.Split((char[])['(', ')', ' ', '*'], s_split_Trim_RemoveEmpty)
             : member.definition?.Untyped.Value.Replace(" *", "* ").Split(' ', s_split_Trim_RemoveEmpty)[..^1] ?? [];
         var returnQuery = from description in member.detaileddescription?.para ?? []
                           from @return in description.simplesect
@@ -278,7 +280,7 @@ ret:
             var type = desc[0];
             if (!doc.ContainsKey(type))
             {
-                type = doc.Keys.Where(x => !x.Contains("MAA_")).Single();
+                type = doc.Keys.Single(x => !x.Contains("MAA_"));
                 doc[type] = string.Join(' ', desc);
             }
             else
