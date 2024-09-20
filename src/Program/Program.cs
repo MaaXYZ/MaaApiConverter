@@ -1,4 +1,6 @@
-﻿namespace MaaApiConverter;
+﻿using System.Text.Json;
+
+namespace MaaApiConverter;
 
 public static class Program
 {
@@ -24,7 +26,13 @@ public static class Program
             .Convert();
 
         var outputPath = Path.Combine(outputDirectory, "index.json");
-        var json = System.Text.Json.JsonSerializer.Serialize(Converter.Api);
+        var json = JsonSerializer.Serialize(Converter.Api, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IndentCharacter = '\t',
+            NewLine = "\n",
+            IndentSize = 1,
+        });
         File.WriteAllText(outputPath, json);
         Console.WriteLine($"""Generated index.json => {outputPath}""");
 

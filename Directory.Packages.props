@@ -7,6 +7,7 @@
     <PackageVersion Include="CodegenCS.DotNet" Version="$(CodegenCSVersion)" />
     <PackageVersion Include="CodegenCS.Models" Version="$(CodegenCSVersion)" />
     <PackageVersion Include="CodegenCS.Runtime" Version="$(CodegenCSVersion)" />
+    <PackageVersion Include="System.Text.Json" Version="9.0.0-rc.1.24431.7" />
     <PackageVersion Include="XObjectsCore" Version="3.4.6" />
   </ItemGroup>
 </Project>
