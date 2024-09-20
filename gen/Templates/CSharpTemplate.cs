@@ -50,7 +50,7 @@ class CSharpTemplate
         ["MaaCtrlId"] = "MaaCtrlId",
         ["MaaCtrlOption"] = "MaaCtrlOption",
         ["MaaCustomActionCallback"] = "MaaCustomActionCallback",
-        ["MaaCustomRecognizerCallback"] = "MaaCustomRecognizerCallback",
+        ["MaaCustomRecognitionCallback"] = "MaaCustomRecognitionCallback",
         ["MaaDbgControllerType"] = "MaaDbgControllerType",
         ["MaaGlobalOption"] = "MaaGlobalOption",
         ["MaaImageEncodedData"] = "MaaImageEncodedData",
