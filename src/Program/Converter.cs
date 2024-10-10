@@ -75,7 +75,7 @@ internal static class Converter
         var define = new DefineDoc
         {
             Description = ToDescriptionFrom(member),
-            Value = member.initializer?.Untyped.Value.TrimStart('=').Trim() ?? string.Empty,
+            Value = string.Join(' ', member.initializer?.Untyped.Value.Split(s_separators, s_split_Trim_RemoveEmpty) ?? []),
         };
 
         if (TryParseEnumName(defineName, '_', out var typeName, out var enumValueName))
@@ -163,6 +163,8 @@ internal static class Converter
     #endregion
 
     private static readonly StringSplitOptions s_split_Trim_RemoveEmpty = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+    private static readonly char[] s_separators = ['=', '\\'];
+
     private static IEnumerable<string> ToDetailQuery(this descriptionType? detail)
         => from para in detail?.para ?? []
            where para.parameterlist.Count is 0  // 参数
@@ -250,7 +252,7 @@ ret:
             doc.Add(enumValue.name.Untyped.Value.Trim(), new()
             {
                 Description = ToDescriptionFrom(enumValue),
-                Value = enumValue.initializer?.Untyped.Value.TrimStart('=').Trim() ?? string.Empty,
+                Value = string.Join(' ', enumValue.initializer?.Untyped.Value.Split(s_separators, s_split_Trim_RemoveEmpty) ?? []),
             });
         return doc;
     }

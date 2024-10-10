@@ -84,6 +84,7 @@ class CSharpTemplate
         ["MaaWin32ScreencapMethod"] = "Win32ScreencapMethod",
         ["MaaWin32InputMethod"] = "Win32InputMethod",
         ["MaaDbgControllerType"] = "DbgControllerType",
+        ["MaaInferenceDevice"] = "InferenceDevice",
     };
     private readonly Dictionary<string, string> _enumVariabledefs = new()
     {
