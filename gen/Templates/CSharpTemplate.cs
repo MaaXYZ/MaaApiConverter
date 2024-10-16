@@ -27,11 +27,17 @@ class CSharpTemplate
         ["MaaToolkitAdbDeviceList*"] = "MaaToolkitAdbDeviceListHandle",
         ["MaaToolkitDesktopWindow*"] = "MaaToolkitDesktopWindowHandle",
         ["MaaToolkitDesktopWindowList*"] = "MaaToolkitDesktopWindowListHandle",
-
+    };
+    readonly Dictionary<string, string> _marshallers = new()
+    {
+        ["IMaaCustomController"] = "[MarshalUsing(typeof(MaaMarshaller))] ",
+        ["bool"] = "[MarshalAs(UnmanagedType.U1)] ",
     };
     readonly Dictionary<string, string> _types = new()
     {
-        ["MaaBool*"] = "{0} MaaBool",
+        ["MaaCustomControllerCallbacksHandle"] = "Custom.IMaaCustomController",
+
+        ["MaaBool*"] = "{0} bool",
         ["MaaNodeId*"] = "{0} MaaNodeId{1}",
         ["MaaOptionValue"] = "byte[]",
         ["MaaRecoId*"] = "{0} MaaRecoId",
@@ -46,7 +52,7 @@ class CSharpTemplate
 
         ["MaaAdbInputMethod"] = "MaaAdbInputMethod",
         ["MaaAdbScreencapMethod"] = "MaaAdbScreencapMethod",
-        ["MaaBool"] = "MaaBool",
+        ["MaaBool"] = "bool",
         ["MaaCtrlId"] = "MaaCtrlId",
         ["MaaCtrlOption"] = "MaaCtrlOption",
         ["MaaCustomActionCallback"] = "MaaCustomActionCallback",
@@ -99,12 +105,9 @@ class CSharpTemplate
     };
     private readonly Dictionary<string, string> _unmanagedToManaged = new()
     {
-        ["MaaStringBuffer*"] = "new Buffers.MaaStringBuffer({0})",
+        ["MaaStringBuffer*"] = "new MaaStringBuffer({0})",
         ["MaaImageBuffer*"] = "new MaaImageBuffer({0})",
-        // ["const char*"] = "{0}.ToStringUTF8()",
         ["void*"] = "",
-
-        ["MaaBool"] = "{0}.ToMaaBool()",
     };
 
     FormattableString Join(params FormattableString[] formattableStrings) => GenExtension.Join(Environment.NewLine, formattableStrings);
@@ -212,6 +215,7 @@ class CSharpTemplate
                 {
                     writer
                         .WriteLine("using System.Runtime.InteropServices;")
+                        .WriteLine("using System.Runtime.InteropServices.Marshalling;")
                         .WriteLine()
                         .WriteLine("namespace MaaFramework.Binding.Interop.Native;")
                         .WriteLine();
@@ -302,7 +306,7 @@ class CSharpTemplate
 
         """);
 
-    # region GlobalUsing
+    #region GlobalUsing
     void WriteGlobalUsings(ICodegenTextWriter writer, Dictionary<string, TypeDoc> types)
     {
         foreach (var (name, type) in types)
@@ -325,7 +329,7 @@ class CSharpTemplate
     }
     #endregion
 
-    # region Function Delegate
+    #region Function Delegate
     void WriteGlobalDelegates(ICodegenTextWriter writer, Dictionary<string, FunctionDoc> functions) => writer.WriteLine(functions.Gen(separator: "\r\n\r\n", f: (name, function) => Join(
             GenDocument(function),
             GenAttribute(function.Types),
@@ -341,6 +345,7 @@ class CSharpTemplate
         {
             ["MaaStringBufferSetEx"] = ("string", "byte[]"),
         };
+        //Dictionary<string, string> custom
 
         var @return = GenReturn(function.Types, out var returnAttribute);
         var @params = GenParameters(function.Parameters);
@@ -350,10 +355,11 @@ class CSharpTemplate
                                                                                                       ?? x).ToArray());
         return (@return, returnAttribute, @params);
     }
-    FormattableString GenFunction(string name, FunctionDoc function, string modifiers = "public static partial", FormattableString? statements = null)
+    FormattableString GenFunction(string name, FunctionDoc function, string modifiers = "public static partial", FormattableString? statements = null, string? ret = null)
     {
         statements ??= $";";
         var (@return, returnAttribute, @params) = GenFunctionElement(name, function);
+        @return = ret ?? @return;
         return string.IsNullOrWhiteSpace(modifiers)
             ? Join(returnAttribute, $"{@return} {name}({@params}){statements}")
             : Join(returnAttribute, $"{modifiers} {@return} {name}({@params}){statements}");
@@ -371,12 +377,19 @@ class CSharpTemplate
     {
         "MAA_FRAMEWORK_API" => $"""[LibraryImport("MaaFramework", StringMarshalling = StringMarshalling.Utf8)]""",
         "MAA_TOOLKIT_API" => $"""[LibraryImport("MaaToolkit", StringMarshalling = StringMarshalling.Utf8)]""",
+        "const char*" or "char*" => $"[return: MarshalUsing(typeof(MaaMarshaller))]",
+        "MaaBool" => $"[return: MarshalAs(UnmanagedType.U1)]",
+
         _ => $"",
     });
     FormattableString GenParameters(Dictionary<string, ParameterDoc> doc) => doc.Gen(separator: ", ", f: (paramName, param) =>
     {
-        var type = _types.TryGetValue(param.Type, out var t) ? t
+        var type = _types.TryGetValue(param.Type, out var t)
+            ? t
             : _customHandleTypedefs.SingleOrDefault(x => param.Type.Contains(x.Key)).Value ?? param.Type;
+        type = _types.GetValueOrDefault(type, type);
+        var marshaller = _marshallers.SingleOrDefault(x => type.Contains(x.Key)).Value ?? string.Empty;
+        type = $"{marshaller}{type}";
 
         if (type == param.Type && !_types.ContainsKey(type))
             UnreplacedTypes.Add(type);
@@ -410,18 +423,10 @@ class CSharpTemplate
     });
     string GenReturn(Dictionary<string, string> doc, out FormattableString returnAttribute)
     {
-        var specials = new Dictionary<string, string>
-        {
-            ["const char*"] = "nint", // 封送会释放掉 Maa 返回的 const char*
-            ["char*"] = "nint",
-        };
-
         returnAttribute = $"";
         var @return = doc.Keys.Single(IsReturnType);
-        if (specials.TryGetValue(@return, out var type))
-            return type;
 
-        if (_types.TryGetValue(@return, out type))
+        if (_types.TryGetValue(@return, out var type))
             return type;
 
         if (_customHandleTypedefs.TryGetValue(@return, out type))
@@ -493,76 +498,112 @@ class CSharpTemplate
         var key = _structKeys[keyName];
         var functionPointers = doc.Variables.Where(x => x.Value.FunctionPointer is not null).ToDictionary(x => specials.GetValueOrDefault(x.Key, x.Key), x => x.Value.FunctionPointer!);
 
+        var managedType = $"IMaaCustom{key}";
+        var unmanagedType = $"{keyName}Handle";
+
         writer
-            .WithIndent($"""
-                        global using Maa{key}ApiTuple = (
-                            System.Runtime.InteropServices.GCHandle Handle,
-                            MaaFramework.Binding.Custom.IMaaCustom{key} Managed,
-                        """, ");", () =>
-                        {
-                            writer.WriteLine(GenStructTupleField_Delegate(key, functionPointers));
-                        })
             .EnsureEmptyLine()
-            .WriteLine()
             .WriteLine("using MaaFramework.Binding.Buffers;")
             .WriteLine("using MaaFramework.Binding.Custom;")
+            .WriteLine("using System.Collections.Concurrent;")
             .WriteLine("using System.Runtime.InteropServices;")
+            .WriteLine("using System.Runtime.InteropServices.Marshalling;")
             .WriteLine()
             .WriteLine("namespace MaaFramework.Binding.Interop.Native;")
             .WriteLine()
-            .WriteLine(GenDocument(doc.Description))
-            .WriteLine($$"""
-                        [StructLayout(LayoutKind.Sequential)]
-                        public class {{keyName}}
-                        {
-                            {{from name in functionPointers.Keys select $"public nint {name}FunctionPointer;"}}
-                        }
-                        """)
-            .EnsureEmptyLine()
-            .WriteLine()
-            .WithCBlock($"""
+            .WithCBlock($$"""
                         /// <summary>
-                        ///     A static class providing extension methods for the converter of <see cref="IMaaCustom{key}"/>.
+                        ///     A static class providing extension methods for the converter of <see cref="{{managedType}}"/>.
                         /// </summary>
-                        public static class IMaaCustom{key}Extension
+                        [CustomMarshaller(typeof({{managedType}}), MarshalMode.ManagedToUnmanagedIn, typeof(ManagedToUnmanagedIn))]
+                        public static class MaaCustom{{key}}Marshaller
                         """, () =>
                         {
-                            writer.WriteLine(GenStructExtensionField_Delegate(functionPointers));
-                            writer.WithCBlock(
-                                $"public static {keyName}Handle Convert(this IMaaCustom{key} task, out Maa{key}ApiTuple tuple)", () =>
+                            writer
+                                .EnsureEmptyLine()
+                                .WriteLine($$"""
+                            private static ConcurrentDictionary<{{managedType}}, ManagedToUnmanagedIn> s_instances { get; } = [];
+
+                            /// <inheritdoc cref="GCHandle.Free"/>
+                            public static void Free({{managedType}} managed)
+                            {
+                               if (s_instances.TryGetValue(managed, out var value))
+                               {
+                                   ManagedToUnmanagedIn.Free(value);
+                               }
+                            }
+                            """)
+                                .EnsureEmptyLine()
+                                .WriteLine()
+                                .WriteLine($$"""
+                            public struct ManagedToUnmanagedIn
+                            {
+                                private {{managedType}} _managed;
+                                private Delegates _delegates;
+                                private GCHandle _handle;
+                            
+                                public void FromManaged({{managedType}} managed)
                                 {
-                                    writer.WriteLine(GenStructExtensionConvert_LocalMethod(functionPointers));
-                                    writer.WriteLine($$"""
-                                        
-                                        {{functionPointers.Keys.Select(name => $"{name}Delegate {name}Method = {name}LocalMethod;")}}
-                                        
-                                        var handle = GCHandle.Alloc(new {{keyName}}()
-                                        {
-                                            {{functionPointers.Keys.Select(name => $"{name}FunctionPointer = Marshal.GetFunctionPointerForDelegate<{name}Delegate>({name}Method),")}}
-                                        }, GCHandleType.Pinned);
-                                        
-                                        tuple = (
-                                            handle,
-                                            task,
-                                            {{string.Join(",\r\n", functionPointers.Keys.Select(x => x + "Method"))}}
-                                        );
-                                        return handle.AddrOfPinnedObject();
-                                        """);
-                                });
+                                    _managed = managed;
+                                    _delegates = new Delegates(managed);
+                                }
+                            
+                                public {{unmanagedType}} ToUnmanaged()
+                                {
+                                    _handle = GCHandle.Alloc(new Unmanaged(_delegates), GCHandleType.Pinned);
+                            
+                                    var value = s_instances.GetOrAdd(_managed, this);
+                                    Interlocked.Increment(ref value._delegates.Times);
+                                    if (value._handle != _handle)
+                                        _handle.Free();
+                            
+                                    return value._handle.AddrOfPinnedObject();
+                                }
+                            
+                                public void Free() { }
+                            
+                                /// <inheritdoc cref="GCHandle.Free"/>
+                                public static void Free(ManagedToUnmanagedIn value)
+                                {
+                                    if (Interlocked.Decrement(ref value._delegates.Times) == 0 && s_instances.TryRemove(value._managed, out _))
+                                    {
+                                        value._handle.Free();
+                                    }
+                                }
+                            }
+                            """)
+                                .EnsureEmptyLine()
+                                .WriteLine()
+                                .WriteLine($$"""
+                            private sealed class Delegates(IMaaCustomController managed)
+                            {
+                                public int Times = 0;
+                                {{GenStructExtensionConvert_LocalMethod(functionPointers)}}
+                            };
+                            """).EnsureEmptyLine()
+                                .WriteLine()
+                                .WriteLine(GenDocument(doc.Description))
+                                .WriteLine($$"""
+                            [StructLayout(LayoutKind.Sequential)]
+                            private sealed class Unmanaged(Delegates delegates)
+                            {
+                                {{functionPointers.Keys.Select(name => $"public nint {name} = Marshal.GetFunctionPointerForDelegate(delegates.{name});")}}
+                            }
+                            """).EnsureEmptyLine()
+                                .WriteLine()
+                                .WriteLine(GenStructExtensionField_Delegate(functionPointers));
                         })
-            .WriteLine();
+            .EnsureEmptyLine();
     }
-    FormattableString GenStructTupleField_Delegate(string key, Dictionary<string, FunctionDoc> doc) => doc.Gen((name, function) =>
-        $"MaaFramework.Binding.Interop.Native.IMaaCustom{key}Extension.{name}Delegate {name}Method",
-        separator: ",\r\n");
     FormattableString GenStructExtensionField_Delegate(Dictionary<string, FunctionDoc> doc) => doc.Gen(separator: "\r\n\r\n", f: (name, function) => Join(
         GenDocument(function),
         GenAttribute(function.Types),
         GenDelegate(name + "Delegate", function)));
-    FormattableString GenStructExtensionConvert_LocalMethod(Dictionary<string, FunctionDoc> doc) => doc.Gen(separator: "\r\n\r\n", f: (name, function) => Join(
-        GenFunction(name + "LocalMethod", function, modifiers: string.Empty, statements: GenStatements(name, function.Types.Keys.Single(), function.Parameters))));
+    FormattableString GenStructExtensionConvert_LocalMethod(Dictionary<string, FunctionDoc> doc) => doc.Gen(separator: "\r\n", f: (name, function) => Join(
+        GenFunction($"{name} = ", function, modifiers: "public", ret: $"{name}Delegate",
+            statements: GenStatements(name, function.Types.Keys.Single(), function.Parameters))));
     FormattableString GenStatements(string funcName, string funcType, Dictionary<string, ParameterDoc> doc) => FormattableStringFactory.Create("{0};", GenManagedType(funcType,
-        $" => task.{Naming.To.PascalCase(funcName)}(" +
+        $" => managed.{Naming.To.PascalCase(funcName)}(" +
         $"{doc.Gen(separator: ", ", f: (paramName, param) => GenManagedType(param.Type, paramName))}" +
         $")"));
     FormattableString GenManagedType(string unmanagedType, string value)
