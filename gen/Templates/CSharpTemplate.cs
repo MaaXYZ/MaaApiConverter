@@ -176,6 +176,10 @@ class CSharpTemplate
                 foreach (var (msgName, msg) in compound.Defines)
                 {
                     var subNames = msgName.Split('_', StringSplitOptions.RemoveEmptyEntries);
+                    if (subNames[^1] == "Succeeded")
+                    {
+                        msgTree[[.. subNames[..^1], "Prefix"]] = new DefineDoc { Description = msg.Description, Value = $"\"{string.Join('.', subNames[1..^1])}\"" };
+                    }
                     msgTree[subNames] = msg;
                 }
 
