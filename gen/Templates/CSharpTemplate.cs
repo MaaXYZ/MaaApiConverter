@@ -42,6 +42,7 @@ class CSharpTemplate
         ["MaaOptionValue"] = "byte[]",
         ["MaaRecoId*"] = "{0} MaaRecoId",
         ["MaaSize*"] = "{0} MaaSize",
+        ["MaaStatus*"] = "{0} MaaStatus",
 
         ["const char*"] = "string",
         ["char*"] = "string",
@@ -91,6 +92,7 @@ class CSharpTemplate
         ["MaaWin32InputMethod"] = "Win32InputMethod",
         ["MaaDbgControllerType"] = "DbgControllerType",
         ["MaaInferenceDevice"] = "InferenceDevice",
+        ["MaaInferenceExecutionProvider"] = "InferenceExecutionProvider",
     };
     private readonly Dictionary<string, string> _enumVariabledefs = new()
     {
@@ -184,7 +186,7 @@ class CSharpTemplate
                 }
 
                 writer
-                    .WriteLine("﻿namespace MaaFramework.Binding.Messages;")
+                    .WriteLine("﻿namespace MaaFramework.Binding.Notification;")
                     .WriteLine()
                     .WriteLine($"//MaaApiDocument Version: {api.Version}")
                     .WriteLine("""
@@ -257,6 +259,8 @@ class CSharpTemplate
             foreach ((var enumName, var @enum) in compound.Enums)
             {
                 string ReplaceName(string name) => name
+                        .Replace("MaaInferenceDevice0", "GPU0")
+                        .Replace("MaaInferenceDevice1", "GPU1")
                         .Replace(enumName, string.Empty)
                         .Replace(enumName.Replace("Type", string.Empty), string.Empty)
                         .Replace("0ULL", "0")
