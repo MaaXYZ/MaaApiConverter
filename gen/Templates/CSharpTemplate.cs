@@ -13,6 +13,7 @@ class CSharpTemplate
     };
     readonly Dictionary<string, string> _customHandleTypedefs = new()
     {
+        ["MaaAgentClient*"] = "MaaAgentClientHandle",
         ["MaaContext*"] = "MaaContextHandle",
         ["MaaController*"] = "MaaControllerHandle",
         ["MaaCustomControllerCallbacks*"] = "MaaCustomControllerCallbacksHandle",
@@ -134,9 +135,18 @@ class CSharpTemplate
 
         foreach (var (compoundName, compound) in api.Compounds.ToArray())
         {
+            var newCompoundName = compoundName switch
+            {
+                "MaaAgentClientAPI.h" => "MaaAgentClient",
+                "MaaAgentServerAPI.h" => "MaaAgentServer",
+                "MaaMsg" => "MaaMsg",
+                _ when compoundName.EndsWith(".h") => compoundName[..^2],
+                _ => throw new NotImplementedException(),
+            };
+
             api.Compounds.Remove(compoundName);
-            api.Compounds.Add(compoundName.EndsWith(".h") ? compoundName[..^2] : compoundName, compound);
-            if (compoundName.Contains("MaaMsg")) continue;
+            api.Compounds.Add(newCompoundName, compound);
+            if (newCompoundName.Contains("MaaMsg")) continue;
 
             Name(null, compound.Typedefs, typedef
                 => Name(false, typedef.FunctionPointer?.Parameters ?? []));
@@ -286,7 +296,8 @@ class CSharpTemplate
 
                 if (globalUsings.Count > 0)
                     WriteGlobalUsings(writer, globalUsings);
-                if (location.Contains("MaaToolkitDef"))
+                if (location.Contains("Def")
+                    && compound.Functions.Count + compound.Defines.Count + globalDelegates.Count == 0)
                     writer.WriteLine("namespace MaaFramework.Binding.Interop.Native;").WriteLine();
 
                 if (compound.Functions.Count + compound.Defines.Count + globalDelegates.Count > 0)
@@ -457,6 +468,8 @@ class CSharpTemplate
     {
         "MAA_FRAMEWORK_API" => $"""[LibraryImport("MaaFramework", StringMarshalling = StringMarshalling.Utf8)]""",
         "MAA_TOOLKIT_API" => $"""[LibraryImport("MaaToolkit", StringMarshalling = StringMarshalling.Utf8)]""",
+        "MAA_AGENT_CLIENT_API" => $"""[LibraryImport("MaaAgentClient", StringMarshalling = StringMarshalling.Utf8)]""",
+        "MAA_AGENT_SERVER_API" => $"""[LibraryImport("MaaAgentServer", StringMarshalling = StringMarshalling.Utf8)]""",
         "const char*" or "char*" => $"[return: MarshalUsing(typeof(MaaMarshaller))]",
         "MaaBool" => $"[return: MarshalAs(UnmanagedType.U1)]",
 
