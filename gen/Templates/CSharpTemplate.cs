@@ -50,6 +50,7 @@ class CSharpTemplate
         ["void*"] = "nint",
 
         ["int32_t"] = "int",
+        ["int64_t"] = "long",
         ["uint64_t"] = "ulong",
 
         ["MaaAdbInputMethod"] = "MaaAdbInputMethod",
