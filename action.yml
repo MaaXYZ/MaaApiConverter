@@ -1,5 +1,16 @@
 name: MaaApiConverter
 author: moomiji
+description: 'Build And Run MaaApiConverter'
+inputs:
+  version:
+    description: 'The version of MaaFramework.'
+    required: true
+  xml:
+    description: 'The directory path of xml files.'
+    required: true
+  output:
+    description: "The directory path of MaaApiConverter output."
+    required: false
 
 runs:
   using: "composite"
